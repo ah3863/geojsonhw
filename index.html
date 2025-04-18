@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>NYC Community Development Block Grant (CDBG) Eligibility and Transit Availability</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.7.2/mapbox-gl-geocoder.min.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+  <link
+    rel="stylesheet"
+    href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v4.7.2/mapbox-gl-geocoder.css"
+    type="text/css"
+  />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    #map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+    }
+
+    .title-box {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(255, 255, 255, 0.9);
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      font-family: sans-serif;
+      text-align: center;
+      z-index: 1;
+    }
+
+    .search-wrapper {
+      margin-top: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .search-input {
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      width: 200px;
+    }
+
+    .search-button {
+      padding: 6px 12px;
+      background-color: steelblue;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .search-button:hover {
+      background-color: #4682b4;
+    }
+
+    .legend {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      padding: 12px;
+      font-family: sans-serif;
+      font-size: 13px;
+      z-index: 1;
+    }
+
+    .legend h4 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
+      border-radius: 2px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div class="title-box">
+    <h1 style="margin: 0; font-size: 20px;">
+      NYC Community Development Block Grant (CDBG) Eligibility and Transit Availability
+    </h1>
+    <p style="margin: 4px 0 8px 0; font-size: 14px;">
+      A Mapbox-powered exploration of economic opportunity and access to public transportation in Brooklyn, Queens, Harlem & the Bronx — where mobility meets momentum.
+    </p>
+    <div class="search-wrapper">
+      <input type="text" placeholder="Search for an address..." class="search-input" id="address-input">
+      <button class="search-button" id="search-button">Search</button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="legend">
+    <h4>Legend</h4>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: #fef0d9;"></div>
+      <span>CDBG Ineligible</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: #fdbb84;"></div>
+      <span>CDBG Eligible</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background-color: steelblue; border-radius: 50%;"></div>
+      <span>Transit Access Point</span>
+    </div>
+  </div>
+
+  <script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoiYWgzODYzIiwiYSI6ImNtOWJ2ZzJoMDBreHIyanBuYmFvb3lvam0ifQ.Zeg12vyxmHuz86vEocSGdw';
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/light-v11',
+      center: [-73.92995, 40.73400], // Brooklyn center
+      zoom: 10
+    });
+
+    map.setMaxBounds([
+      [-74.2557, 40.4961], // Southwest corner of NYC
+      [-73.6895, 40.9155]  // Northeast corner of NYC
+    ]);
+
+    map.on('load', () => {
+      map.addSource('community_eligible', {
+        type: 'geojson',
+        data: './data/community_eligible.geojson'
+      });
+
+      map.addLayer({
+  id: 'community-layer',
+  type: 'fill',
+  source: 'community_eligible',
+  paint: {
+    'fill-color': [
+      'match',
+      ['get', 'Eligibility'],
+      'CD Eligible', '#fdbb84',
+      'Ineligible', '#fef0d9',
+      '#ccc' // fallback
+    ],
+    'fill-opacity': 0.7
+  }
+});
+
+
+      map.addSource('transportation', {
+        type: 'geojson',
+        data: './data/transportation.geojson'
+      });
+
+      map.addLayer({
+        id: 'transit-points',
+        type: 'circle',
+        source: 'transportation',
+        paint: {
+          'circle-radius': 4,
+          'circle-color': 'steelblue',
+          'circle-stroke-width': 1,
+          'circle-stroke-color': '#fff'
+        }
+      });
+    });
+
+    // Geocoder functionality
+    document.getElementById('search-button').addEventListener('click', async () => {
+      const query = document.getElementById('address-input').value;
+      if (!query) return;
+
+      const geocodeUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxgl.accessToken}&limit=1&proximity=-73.935242,40.730610`;
+
+      try {
+        const response = await fetch(geocodeUrl);
+        const data = await response.json();
+        if (data.features && data.features.length > 0) {
+          const [lng, lat] = data.features[0].center;
+          map.flyTo({ center: [lng, lat], zoom: 14 });
+
+          new mapboxgl.Marker()
+            .setLngLat([lng, lat])
+            .addTo(map);
+        } else {
+          alert("Location not found. Please try a more specific address.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error searching location.");
+      }
+    });
+  </script>
+</body>
+</html>
